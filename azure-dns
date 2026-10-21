@@ -1,0 +1,556 @@
+# AZ-700 Study Notes - Azure DNS & Private DNS
+
+**Study Date:** End of Day Review
+
+## Topics Covered
+
+- Azure DNS
+- Public DNS Zones
+- Private DNS Zones
+- A Records
+- CNAME Records
+- MX Records
+- TXT Records
+- DNS Resolution
+- VNet Links
+- Auto Registration
+- Split-Brain DNS
+- Private Endpoints
+- Name Resolution Across VNets
+
+---
+
+# Quick Reference Cheat Sheet
+
+| Service | Purpose | Accessible From |
+|----------|----------|----------|
+| Azure Public DNS Zone | Internet Name Resolution | Internet |
+| Azure Private DNS Zone | Internal Name Resolution | Linked VNets |
+| A Record | Hostname → IPv4 Address | Public or Private DNS |
+| CNAME | Hostname → Hostname | Public or Private DNS |
+| MX | Mail Routing | Public DNS |
+| TXT | Verification / SPF / Metadata | Public DNS |
+
+---
+
+# Azure DNS
+
+## What It Is
+
+Azure DNS hosts DNS zones and records using Microsoft infrastructure.
+
+### Example
+
+```text
+contoso.com
+```
+
+Records inside the zone:
+
+```text
+www.contoso.com
+mail.contoso.com
+api.contoso.com
+```
+
+---
+
+# Public DNS Zones
+
+## Purpose
+
+Resolve names from anywhere on the Internet.
+
+### Example
+
+```text
+www.contoso.com
+        ↓
+20.40.50.60
+```
+
+A user anywhere can resolve the name.
+
+---
+
+## Common Record Types
+
+### A Record
+
+Maps hostname → IPv4 address.
+
+```text
+www.contoso.com
+      ↓
+20.40.50.60
+```
+
+### CNAME Record
+
+Creates an alias.
+
+```text
+portal.contoso.com
+          ↓
+myapp.azurewebsites.net
+```
+
+### MX Record
+
+Mail routing.
+
+```text
+contoso.com
+      ↓
+mail.contoso.com
+```
+
+### TXT Record
+
+Commonly used for:
+
+- Microsoft 365 Verification
+- SPF
+- DKIM
+- Ownership Validation
+
+---
+
+# Private DNS Zones
+
+## Purpose
+
+Internal Azure-only name resolution.
+
+### Example
+
+```text
+contoso.internal
+```
+
+Records:
+
+```text
+db01.contoso.internal
+web01.contoso.internal
+```
+
+These names are NOT publicly accessible.
+
+---
+
+# Private DNS Zone Links
+
+## Critical AZ-700 Concept
+
+A Private DNS Zone must be linked to a VNet.
+
+### Example
+
+```text
+Private DNS Zone
+
+contoso.internal
+        │
+        │ Link
+        ▼
+     VNet-A
+```
+
+VMs in VNet-A can resolve:
+
+```text
+db01.contoso.internal
+```
+
+---
+
+### Without A Link
+
+```text
+Private DNS Zone
+        │
+        X
+        │
+      VNet-B
+```
+
+Result:
+
+```text
+Name Resolution Fails
+```
+
+---
+
+# VNet Peering vs DNS Links
+
+## Common Exam Trap
+
+Many students assume VNet Peering provides DNS resolution.
+
+It does not.
+
+### Example
+
+```text
+VNet-A
+   ↔
+VNet-B
+```
+
+Even if peering exists:
+
+```text
+VM-B
+   ↓
+app.contoso.internal
+```
+
+Still fails unless:
+
+```text
+Private DNS Zone
+       ↓
+Linked To
+       ↓
+VNet-B
+```
+
+---
+
+## Memory Hook
+
+```text
+Peering = Connectivity
+
+DNS Link = Name Resolution
+```
+
+You often need both.
+
+---
+
+# Auto Registration
+
+Allows Azure VMs to automatically create DNS records.
+
+Example:
+
+```text
+VM01
+```
+
+Automatically becomes:
+
+```text
+vm01.contoso.internal
+```
+
+---
+
+# Exam Clue
+
+Question mentions:
+
+> "Automatically register private IP addresses"
+
+Answer:
+
+✅ Auto Registration
+
+---
+
+# Split-Brain DNS
+
+## What It Is
+
+Same domain exists in public and private DNS.
+
+### Example
+
+Public DNS
+
+```text
+app.contoso.com
+      ↓
+52.160.1.10
+```
+
+Private DNS
+
+```text
+app.contoso.com
+      ↓
+10.1.1.10
+```
+
+---
+
+## Internal Users
+
+Resolve:
+
+```text
+10.1.1.10
+```
+
+---
+
+## External Users
+
+Resolve:
+
+```text
+52.160.1.10
+```
+
+---
+
+# Private Endpoints & DNS
+
+## Common AZ-700 Topic
+
+Private Endpoint:
+
+```text
+Storage Account
+        ↓
+Private Endpoint
+        ↓
+10.1.1.5
+```
+
+Applications access the service privately.
+
+---
+
+## DNS Requirement
+
+Private Endpoints almost always require:
+
+✅ Private DNS Zone
+
+Without proper DNS:
+
+```text
+storageaccount.blob.core.windows.net
+```
+
+may resolve to the public endpoint.
+
+---
+
+# Service Selection Matrix
+
+## Requirement → Solution
+
+### Public Website
+
+✅ Azure Public DNS Zone
+
+---
+
+### Internal Application
+
+✅ Azure Private DNS Zone
+
+---
+
+### Azure VM Name Registration
+
+✅ Private DNS Zone + Auto Registration
+
+---
+
+### Hybrid Name Resolution
+
+✅ Private DNS Zone + DNS Forwarding
+
+---
+
+### Private Endpoint Name Resolution
+
+✅ Private DNS Zone
+
+---
+
+### Microsoft 365 Verification
+
+✅ TXT Record
+
+---
+
+### Route Email
+
+✅ MX Record
+
+---
+
+### Alias One Name To Another
+
+✅ CNAME Record
+
+---
+
+# High-Value Exam Traps
+
+## Trap #1
+
+Requirement:
+
+> VNet-B cannot resolve names in a Private DNS Zone
+
+Wrong Answer:
+
+❌ Create VNet Peering
+
+Correct Answer:
+
+✅ Create a DNS Zone Link
+
+---
+
+## Trap #2
+
+Requirement:
+
+> Internal users and external users should resolve different IPs for the same hostname
+
+Correct Answer:
+
+✅ Split-Brain DNS
+
+---
+
+## Trap #3
+
+Requirement:
+
+> Automatically create DNS records for Azure VMs
+
+Correct Answer:
+
+✅ Auto Registration
+
+---
+
+## Trap #4
+
+Requirement:
+
+> Route email delivery
+
+Correct Answer:
+
+✅ MX Record
+
+---
+
+## Trap #5
+
+Requirement:
+
+> Create an alias to another hostname
+
+Correct Answer:
+
+✅ CNAME Record
+
+---
+
+# Morning Review Quiz
+
+---
+
+## Question 1
+
+A company hosts a web application at:
+
+```text
+www.contoso.com
+```
+
+The application has a public IP address of:
+
+```text
+20.40.50.60
+```
+
+Which DNS record should be used?
+
+A. MX
+
+B. TXT
+
+C. CNAME
+
+D. A
+
+---
+
+## Question 2
+
+Two VNets are peered.
+
+A Private DNS Zone named:
+
+```text
+contoso.internal
+```
+
+is linked only to VNet-A.
+
+VMs in VNet-B cannot resolve records from the zone.
+
+What should you do?
+
+A. Configure Gateway Transit
+
+B. Enable Auto Registration
+
+C. Add a Virtual Network Link to VNet-B
+
+D. Create a Route Table
+
+---
+
+## Question 3
+
+A company needs to verify ownership of a domain while configuring Microsoft 365.
+
+Which DNS record should be created?
+
+A. CNAME
+
+B. TXT
+
+C. MX
+
+D. PTR
+
+---
+
+## Question 4
+
+Which record type creates an alias?
+
+A. A
+
+B. MX
+
+C. TXT
+
+D. CNAME
+
+---
+
+## Question 5
+
+Internal users should reach:
+
+```text
+10.1.1.5
+```
+
+External users should reach:
